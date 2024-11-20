@@ -1,0 +1,11 @@
+{
+    "CORS": {
+	    "methods": ["GET", "POST", "OPTIONS", "DELETE"],
+        "origins": ["*"],
+        "headers": ["*"]
+    },
+
+    "path": {
+        "uploads": "/var/www/vault/app/uploads"
+    }  
+}

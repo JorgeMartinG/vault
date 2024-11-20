@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style/dropzone.min.css" type="text/css" />
+</head>
+<body>
+
+    <form action="http://192.168.0.8:8000/api/uploads/" class="dropzone" id="dropzone"></form>
+    <button id="dropbutton">Add files...</button>
+
+    <h2>Uploaded Files</h2>
+    <ul id="fileList" class="file-list"></ul>
+    <div id="messages"></div>
+
+    <script src="script/dropzone.min.js"></script>
+    <script src="script/dropzone.js"></script>
+    <script src="script/uploads.js"></script>
+</body>
+</html>
