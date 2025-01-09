@@ -5,15 +5,28 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from typing import List
-from .tools import get_video_info, format_size
+from tools import get_video_info, format_size
+from queue import QueueManager
+from daemon import ProcessorDaemon
+from contextlib import asynccontextmanager
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle manager for the FastAPI application"""
+    # Startup
+    processor_daemon.start()
+    yield
+    # Shutdown
+    processor_daemon.stop()
 
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(lifespan=lifespan)
 
 with open("/var/www/vault/app/api/config/config.json") as config_file:
     config = json.load(config_file)
 
 cors_config = config["CORS"]
+queue_manager = QueueManager(Path(config["path"]["queue"]))
+processor_daemon = ProcessorDaemon(config)
 
 app.add_middleware(
     CORSMiddleware, 
@@ -25,7 +38,6 @@ app.add_middleware(
 
 upload_dir = Path(config["path"]["uploads"]).resolve()
 upload_dir.mkdir(parents=True, exist_ok=True)
-
 
 @app.post("/api/uploads/")
 async def create_upload_file(file_uploads: List[UploadFile] = File(...)) -> list:
@@ -95,6 +107,43 @@ async def delete_file(filename: str) -> None:
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting file {filename}: {e}")
+
+@app.post("/api/process/{filename}")
+async def process_video(filename: str):
+    """Add a video to the processing queue"""
+    try:
+        task_id = queue_manager.add_task(filename)
+        return {
+            "status": "success",
+            "task_id": task_id,
+            "message": "Video added to processing queue"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/process/status/{task_id}")
+async def get_process_status(task_id: str):
+    """Get the status of a processing task"""
+    task = queue_manager.get_task_status(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+@app.get("/api/process/queue")
+async def get_queue_status():
+    """Get the status of all tasks in the queue"""
+    queue_data = queue_manager._load_queue()
+    return {
+        "pending": len(queue_data["pending"]),
+        "processing": len(queue_data["processing"]),
+        "completed": len(queue_data["completed"]),
+        "tasks": {
+            "pending": queue_data["pending"],
+            "processing": queue_data["processing"],
+            "completed": queue_data["completed"][-10:]  # Return only last 10 completed tasks
+        }
+    }
+
 
 if __name__ == "__main__":
 

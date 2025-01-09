@@ -6,6 +6,15 @@
     },
 
     "path": {
-        "uploads": "/var/www/vault/app/uploads"
-    }  
+        "uploads": "/var/www/vault/app/uploads",
+        "processing": "/var/www/vault/app/processing",
+        "processed": "/var/www/vault/app/processed",
+        "queue": "/var/www/vault/app/queue",
+        "logs": "/var/www/vault/app/logs"
+    },
+    "processing": {
+        "max_workers": 2,
+        "check_interval": 1,
+        "log_level": "INFO"
+    }
 }

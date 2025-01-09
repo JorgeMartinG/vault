@@ -2,7 +2,6 @@ import json
 import subprocess
 from pathlib import Path
 
-
 def format_size(size: str) -> str:
 
     for unit in ["B", "KB", "MB", "GB"]:

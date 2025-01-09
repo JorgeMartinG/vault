@@ -14,7 +14,7 @@ function showMessage(message, type = 'success') {
 async function deleteUploadedFile(filename) {
    try {
       const response = await fetch(
-         'http://192.168.0.8:8000/api/files/' + filename, { method: 'DELETE'}
+         'http://10.1.5.206:8000/api/files/' + filename, { method: 'DELETE'}
       );
       if (response.ok) {
          showMessage('File deleted succesfully', 'success');
@@ -26,17 +26,9 @@ async function deleteUploadedFile(filename) {
    }
 }
 
-// async function fetchCpuLoad() {
-//    const response = await fetch("/api/cpu-usage");
-//    const data = await response.json();
-//    document.getElementById("cpu-usage").textContent = data.cpu_percent + '%';
-// }
-
-// setInterval(fetchCpuLoad, 1000)
-
 async function fetchUploadedFiles() {
    try {
-      const response = await fetch('http://192.168.0.8:8000/api/files/');
+      const response = await fetch('http://10.1.5.206:8000/api/files/');
       const data = await response.json();
       const fileList = document.getElementById('fileList');
       fileList.innerHTML = '';
@@ -69,6 +61,15 @@ async function fetchUploadedFiles() {
                listItem.appendChild(detailsList);
             }
 
+            const processButton = document.createElement('button');
+            processButton.innerHTML = 'Procesar';
+            processButton.classList.add('process-button');
+            processButton.onclick = async function() {
+                if (confirm(`¿Estás seguro de que quieres procesar ${file.filename}?`)) {
+                    await processVideo(file.filename);
+                }
+            };
+
             const deleteButton = document.createElement('button');
             deleteButton.innerHTML = 'Delete';
             deleteButton.classList.add('delete-button'); // delete-button class
@@ -79,6 +80,7 @@ async function fetchUploadedFiles() {
                }
             };
 
+            listItem.appendChild(processButton);
             listItem.appendChild(deleteButton);
             fileList.appendChild(listItem);
          });
@@ -90,6 +92,65 @@ async function fetchUploadedFiles() {
    } catch (error) {
       console.error('Error fetching files:', error);
    }
+}
+
+async function processVideo(filename) {
+    try {
+        const response = await fetch(
+            `http://10.1.5.206:8000/api/process/${filename}`,
+            { method: 'POST' }
+        );
+        
+        if (response.ok) {
+            const data = await response.json();
+            showMessage(`Video añadido a la cola de procesamiento: ${data.task_id}`, 'success');
+            
+            // Start polling for status updates
+            pollProcessingStatus(data.task_id);
+        } else {
+            showMessage('Error al procesar el archivo: ' + response.statusText, 'error');
+        }
+    } catch (error) {
+        console.error('Error procesando archivo:', error);
+        showMessage('Error al procesar el archivo', 'error');
+    }
+}
+
+async function pollProcessingStatus(taskId) {
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch(
+                `http://10.1.5.206:8000/api/process/status/${taskId}`
+            );
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                switch(data.status) {
+                    case 'completed':
+                        showMessage(`Procesamiento completado: ${data.filename}`, 'success');
+                        clearInterval(pollInterval);
+                        fetchUploadedFiles(); // Refresh the file list
+                        break;
+                    case 'error':
+                        showMessage(`Error en el procesamiento: ${data.error}`, 'error');
+                        clearInterval(pollInterval);
+                        break;
+                    case 'processing':
+                        // Opcional: mostrar un indicador de progreso
+                        break;
+                }
+            }
+        } catch (error) {
+            console.error('Error checking status:', error);
+            clearInterval(pollInterval);
+        }
+    }, 5000); // Check every 5 seconds
+    
+    // Stop polling after 1 hour to prevent infinite polling
+    setTimeout(() => {
+        clearInterval(pollInterval);
+    }, 3600000);
 }
 
 window.onload = fetchUploadedFiles;
