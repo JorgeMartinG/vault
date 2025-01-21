@@ -1,16 +1,12 @@
 {
-    "CORS": {
-	    "methods": ["GET", "POST", "OPTIONS", "DELETE"],
-        "origins": ["*"],
-        "headers": ["*"]
+    "cors": {
+	    "method": ["GET", "POST", "OPTIONS", "DELETE"],
+        "origin": ["http://10.1.5.206", "http://localhost", "http://localhost:8000"],
+        "header": ["*"]
     },
 
     "path": {
-        "uploads": "/var/www/vault/app/uploads",
-        "processing": "/var/www/vault/app/processing",
-        "processed": "/var/www/vault/app/processed",
-        "queue": "/var/www/vault/app/queue",
-        "logs": "/var/www/vault/app/logs"
+        "uploads": "/var/www/vault/app/uploads"
     },
     "processing": {
         "max_workers": 2,
