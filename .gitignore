@@ -1,0 +1,10 @@
+# Pycache
+**/__pycache__/
+# Pyvenv
+.env
+# Uploads
+app/uploads/*
+app/logs
+app/processing
+app/processed
+app/queue

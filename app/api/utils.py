@@ -3,17 +3,17 @@ import subprocess
 from pathlib import Path
 
 def format_size(size: str) -> str:
+    """Converts a size in bytes to a readable representation (B, KB, MB, GB, TB)."""
 
     for unit in ["B", "KB", "MB", "GB"]:
         if size < 1024:
             return f"{size:.2f} {unit}".rstrip("0").rstrip(".")
-        
         size /= 1024
-
     return f"{size:.2f} TB"
 
 
 def get_video_info(file_path: Path) -> dict:
+    """Extract technical information from a video file using ffprobe."""
 
     try:
         result = subprocess.run(

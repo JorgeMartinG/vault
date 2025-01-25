@@ -5,19 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
     <link rel="stylesheet" href="style/dropzone.min.css" type="text/css" />
+    <link rel="stylesheet" href="style/main.css" type="text/css" />
 </head>
 <body>
 
-    <form action="http://10.1.5.206:8000/api/uploads/" class="dropzone" id="dropzone"></form>
+    <form action="http://192.168.1.146:8000/api/uploads/" class="dropzone" id="dropzone"></form>
     <button id="dropbutton">Add files...</button>
 
-    <h2>Uploaded Files</h2>
-    <ul id="fileList" class="file-list"></ul>
-    <div id="messages"></div>
-    <p>Este es vault (no funcional)</p>
+    <div class="files-container">
+        <div class="uploaded-files">
+            <h2>Uploaded Files</h2>
+            <ul id="fileList" class="file-list"></ul>
+        </div>
+
+        <div class="processed-files">
+            <h2>Processed Files</h2>
+            <ul id="processedList" class="file-list"></ul>
+        </div>
+    </div>
+
+    <div id="msg-zone"></div>
 
     <script src="script/dropzone.min.js"></script>
     <script src="script/dropzone.js"></script>
+    <script src="script/config.js"></script>
     <script src="script/uploads.js"></script>
 </body>
 </html>
