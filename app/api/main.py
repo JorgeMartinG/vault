@@ -1,64 +1,68 @@
 import aiofiles
 import json
 import os
+from dataclasses import dataclass
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from typing import List
 from utils import get_video_info, format_size
-from transcoding.queue import QueueManager
-from transcoding.process import VideoProcessor
-from transcoding.daemon import ProcessorDaemon
+from core.process import VideoProcessor
+from core.validate import FileValidator
+from core.manager import QueueManager
+from core.daemon import ProcessorDaemon
+from core.logging import VideoLogger
 from contextlib import asynccontextmanager
-from transcoding.logger import VideoLogger
+
+with open("/var/www/vault/app/api/config/config.json") as config_file:
+    config = json.load(config_file)
+
+file_validator = FileValidator(config["path"])
+queue_manager = QueueManager(Path(config["path"]["queue"]), config)
+logger = VideoLogger(Path(config["path"]["logs"]))
+
+video_processor = VideoProcessor(
+    input_dir=Path(config["path"]["uploads"]),
+    output_dir=Path(config["path"]["processed"]),
+    queue_manager=queue_manager,
+    file_validator=file_validator,
+    logger=logger
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifecycle manager for the FastAPI application"""
+    "Lifecycle manager for the FastAPI application"
 
     processor_daemon = ProcessorDaemon(
-        queue_manager=queue_manager, 
+        queue_manager=queue_manager,
         video_processor=video_processor,
         logger=logger,
+        file_validator=FileValidator,
         check_interval=config["processing"]["check_interval"]
     )
+
     processor_daemon.start()
     yield
     processor_daemon.stop()
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 
-with open("/var/www/vault/app/api/config/config.json") as config_file:
-    config = json.load(config_file)
-
-cors = config["cors"]
-path = config["path"]
-queue_manager = QueueManager(Path(path["queue"]), config)
-logger = VideoLogger(Path(path["logs"]))
-
-video_processor = VideoProcessor(
-    input_dir=Path(path["uploads"]),
-    output_dir=Path(path["processed"]),
-    queue_manager=queue_manager,
-    logger=logger
-)
-
-upload_dir = Path(path["uploads"]).resolve()
-output_dir = Path(path["processed"]).resolve()
+upload_dir = Path(config["path"]["uploads"]).resolve()
+output_dir = Path(config["path"]["processed"]).resolve()
 upload_dir.mkdir(parents=True, exist_ok=True)
 output_dir.mkdir(parents=True, exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware, 
-    allow_origins=cors["origin"],
-    allow_methods=cors["method"],
-    allow_headers=cors["header"],
+    allow_origins=config["cors"]["origin"],
+    allow_methods=config["cors"]["method"],
+    allow_headers=config["cors"]["header"],
     allow_credentials=True,
 )
 
 @app.post("/api/uploads/")
 async def create_upload_file(file_uploads: List[UploadFile] = File(...)) -> list:
-    """Handles uploading multiple files."""
+    "Handles uploading multiple files."
 
     uploaded_files = []
     for file in file_uploads:
@@ -76,7 +80,7 @@ async def create_upload_file(file_uploads: List[UploadFile] = File(...)) -> list
 
 @app.get("/api/files/")
 async def list_upload_file() -> dict:
-    """Lists all files in the uploads directory."""
+    "Lists all files in the uploads directory."
 
     try:
         files = []
@@ -84,19 +88,17 @@ async def list_upload_file() -> dict:
             file_path = upload_dir / filename
             if file_path.is_file():
                 file_info = {"filename": filename, "size": format_size(file_path.stat().st_size)}
-            if filename.lower().endswith(('.mp4', '.mkv', '.ts')):
+            if file_validator.validate_extension(filename):
                 file_info.update(get_video_info(file_path))
             files.append(file_info)
         
-        if not files:
-            return {"message": "No files found"}
-        return {"files": files}
+        return {"files": files} if files else {"message": "No files found"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing files in {upload_dir}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error listing files: {e}")
 
 @app.delete("/api/files/{filename}")
 async def delete_file(filename: str) -> None:
-    """Delete a specific file from the uploads directory."""
+    "Delete a specific file from the uploads directory."
 
     file_path = upload_dir / filename
     if not file_path.exists() or not file_path.is_file():
@@ -107,9 +109,9 @@ async def delete_file(filename: str) -> None:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting file {filename}: {e}")
 
-@app.post("/api/process/{filename}")
+@app.post("/api/process/add/{filename}")
 async def process_video(filename: str):
-    """Add a video to the processing queue"""
+    "Add a video to the processing queue"
 
     try:
         task_id = queue_manager.add_task(filename)
@@ -123,38 +125,22 @@ async def process_video(filename: str):
 
 @app.get("/api/process/status/{task_id}")
 async def get_process_status(task_id: str) -> dict:
-    """Get the status of a processing task."""
+    "Get the status of a processing task."
     
-    queue_data = queue_manager._load_queue()
-    current_status = queue_manager._find_task_status(task_id, queue_data)
+    current_status = queue_manager.find_task_status(task_id)
     
     if not current_status:
         raise HTTPException(status_code=404, detail="Task not found")
         
-    task = queue_manager._get_task_status(task_id, current_status, queue_data)
+    task = queue_manager.get_task_status(task_id, current_status)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
         
     return task
 
-# @app.get("/api/process/queue")
-# async def get_queue_status():
-#     """Get the status of all tasks in the queue"""
-#     queue_data = queue_manager._load_queue()
-#     return {
-#         "pending": len(queue_data["pending"]),
-#         "processing": len(queue_data["processing"]),
-#         "completed": len(queue_data["completed"]),
-#         "tasks": {
-#             "pending": queue_data["pending"],
-#             "processing": queue_data["processing"],
-#             "completed": queue_data["completed"][-10:]  # Return only last 10 completed tasks
-#         }
-#     }
-
-@app.get("/api/processed/")
+@app.get("/api/process/ready")
 async def list_processed_files() -> dict:
-    """List all processed video files."""
+    "List all processed video files."
     try:
         files = []
         for filename in os.listdir(output_dir):
@@ -164,7 +150,7 @@ async def list_processed_files() -> dict:
                     "filename": filename,
                     "size": format_size(file_path.stat().st_size)
                 }
-                if filename.lower().endswith(('.mp4', '.mkv', '.ts')):
+                if file_validator.validate_extension(filename):
                     file_info.update(get_video_info(file_path))
                 files.append(file_info)
         

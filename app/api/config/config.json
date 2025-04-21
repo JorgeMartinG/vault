@@ -1,26 +1,25 @@
 {
     "cors": {
 	    "method": ["GET", "POST", "OPTIONS", "DELETE"],
-        "origin": ["http://192.168.1.146", "http://localhost", "http://localhost:8000"],
+        "origin": ["http://10.1.2.241", "http://localhost", "http://localhost:8000"],
         "header": ["*"]
     },
 
     "path": {
         "uploads": "/home/jorge/Vídeos/uploads",
         "processed": "/home/jorge/Vídeos/processed",
-        "queue": "/var/www/vault/app/api/transcoding/queue/queue.json",
-        "logs": "/var/www/vault/app/api/logs"
+        "queue": "/var/www/vault/app/api/core/queue/queue.json",
+        "logs": "/var/www/vault/app/log"
     },
     "processing": {
         "max_workers": 2,
         "check_interval": 1,
         "log_level": "INFO"
     },
-    "message": {
-        "start": "Started processing video:",
-        "completed": "",
-        "error": "",
-        "system": ""
-
+    "database": {
+        "host": "localhost",
+        "user": "root",
+        "password": "Dos4ocho",
+        "database": "movie_vault"
     }
 }

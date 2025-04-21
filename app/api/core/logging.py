@@ -10,11 +10,11 @@ class VideoLogger:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         
         # Configurar un único logger
-        self.logger = logging.getLogger('video_processor')
+        self.logger = logging.getLogger('processing')
         self.logger.setLevel(logging.INFO)
         
         # Configurar el handler para el archivo
-        log_file = log_dir / 'video_processor.log'
+        log_file = log_dir / 'processing.log'
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(logging.INFO)
         
